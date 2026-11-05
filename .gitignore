@@ -4,6 +4,6 @@ __pycache__/
 .venv/
 .env
 web/node_modules/
-web/dist/
+.idea/
 
 keys.txt

@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+.idea
+.env
+web/node_modules
+botconnectserver.egg-info
+__pycache__
+*.py[cod]
+tests
+scripts
+example_client.py
+README.md

@@ -12,5 +12,8 @@ dependencies = ["python-dotenv>=1.0"]
 [tool.setuptools]
 packages = ["botconnectserver"]
 
+[tool.setuptools.package-data]
+botconnectserver = ["web_dist/**/*"]
+
 [project.scripts]
 botconnectserver = "botconnectserver.server:main"

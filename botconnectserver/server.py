@@ -8,8 +8,11 @@ import logging
 import os
 import signal
 import struct
+import threading
 import uuid
 from dataclasses import dataclass, field
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib import resources
 from pathlib import Path
 
 LOG = logging.getLogger('botconnectserver')
@@ -26,6 +29,7 @@ class Config:
     ws_port: int = 9001
     names: dict = field(default_factory=dict)
     server_keys: frozenset = field(default_factory=frozenset)
+    static_port: int = 0
 
     @classmethod
     def from_env(cls):
@@ -51,9 +55,61 @@ class Config:
         if not keys:
             raise ValueError('Configure at least one key using CLIENT_KEYS or CLIENT_KEYS_FILE')
         port, ws_port = int(os.getenv('PORT', '9000')), int(os.getenv('WS_PORT', '9001'))
-        if not all(0 <= p <= 65535 for p in (port, ws_port)):
-            raise ValueError('PORT and WS_PORT must be between 0 and 65535')
-        return cls(os.getenv('HOST', '0.0.0.0'), port, tuple(dict.fromkeys(keys)), ws_port, names, server_keys)
+        static_port = int(os.getenv('STATIC_PORT', '0'))
+        if not all(0 <= p <= 65535 for p in (port, ws_port, static_port)):
+            raise ValueError('PORT, WS_PORT and STATIC_PORT must be between 0 and 65535')
+        return cls(os.getenv('HOST', '0.0.0.0'), port, tuple(dict.fromkeys(keys)), ws_port, names, server_keys, static_port)
+
+
+_MIME = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.ico': 'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf',
+    '.map': 'application/json',
+}
+
+
+class StaticHandler(BaseHTTPRequestHandler):
+    """从 Python 包内托管 Vue 打包产物（botconnectserver/web_dist），支持 SPA 回退。"""
+
+    protocol_version = 'HTTP/1.1'
+
+    def log_message(self, fmt, *args):
+        LOG.debug('static: %s', fmt % args)
+
+    def do_GET(self):
+        path = self.path.split('?', 1)[0].split('#', 1)[0] or '/'
+        # SPA 回退：非文件路径（无扩展名）一律回退到 index.html
+        if '.' not in Path(path).name:
+            path = '/index.html'
+        path = path.lstrip('/')
+        if path == '':
+            path = 'index.html'
+        try:
+            data = resources.files('botconnectserver').joinpath('web_dist', *path.split('/')).read_bytes()
+        except (FileNotFoundError, NotADirectoryError, OSError):
+            self.send_error(404)
+            return
+        suffix = Path(path).suffix.lower()
+        self.send_response(200)
+        self.send_header('Content-Type', _MIME.get(suffix, 'application/octet-stream'))
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_HEAD(self):
+        self.do_GET()
 
 
 class Session:
@@ -122,6 +178,7 @@ class Server:
         self.tasks = set()
         self.server = None
         self.ws_server = None
+        self.static_server = None
 
     async def start(self):
         self.server = await asyncio.start_server(self.connected, self.config.host, self.config.port, limit=MAX_FRAME + 1)
@@ -131,7 +188,22 @@ class Server:
             self.server.close()
             await self.server.wait_closed()
             raise
+        self._start_static()
         LOG.info('TCP listening on %s; WebSocket listening on %s', self.server.sockets[0].getsockname(), self.ws_server.sockets[0].getsockname())
+
+    def _start_static(self):
+        """若配置了 static_port，则在线程中托管包内 web_dist 前端静态文件。"""
+        if not self.config.static_port:
+            return
+        if not resources.files('botconnectserver').joinpath('web_dist', 'index.html').is_file():
+            LOG.warning('web_dist not found in package, skipping static hosting (run `npm run build` in web/)')
+            return
+        self.static_server = ThreadingHTTPServer((self.config.host, self.config.static_port), StaticHandler)
+        self.static_server.daemon_threads = True
+        thread = threading.Thread(target=self.static_server.serve_forever, daemon=True, name='static-server')
+        thread.start()
+        host, port = self.static_server.server_address[:2]
+        LOG.info('Static files (package web_dist) serving at http://%s:%s', host, port)
 
     def connected(self, reader, writer):
         self.spawn(self.handle(Session(reader, writer)))
@@ -304,6 +376,10 @@ class Server:
         for server in (self.server, self.ws_server):
             if server:
                 await server.wait_closed()
+        if self.static_server:
+            self.static_server.shutdown()
+            self.static_server.server_close()
+            self.static_server = None
 
 
 async def run(config):

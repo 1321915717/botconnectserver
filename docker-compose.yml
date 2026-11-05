@@ -1,0 +1,28 @@
+services:
+  botconnectserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: botconnectserver
+    restart: unless-stopped
+    # 宿主机端口 → 容器端口
+    # 8317 → TCP (AI Agent socket)
+    # 8320 → WebSocket (前端控制台通信)
+    # 8319 → 静态页面 (前端控制台界面)
+    ports:
+      - "8317:9100"   # TCP 连接端口
+      - "8320:9101"   # WebSocket 端口
+      - "8319:9102"   # 前端静态页面
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "9100"
+      WS_PORT: "9101"
+      STATIC_PORT: "9102"
+      LOG_LEVEL: "INFO"
+      # 密钥配置（生产环境请改为 env_file 或 secrets，勿明文提交）
+      CLIENT_KEYS: "${CLIENT_KEYS:-admin-secret,alice-secret,bob-secret}"
+      SERVER_KEYS: "${SERVER_KEYS:-admin-secret}"
+      CLIENT_NAMES: "${CLIENT_NAMES:-admin-secret:服务端,alice-secret:Alice,bob-secret:Bob}"
+    # 可选：通过 .env 文件提供敏感配置
+    # env_file:
+    #   - .env

@@ -13,7 +13,7 @@ from botconnectserver.server import Config, Server
 
 
 async def main():
-    server = Server(Config('127.0.0.1', 0, ('service-a', 'service-b', 'console'), 0, {}))
+    server = Server(Config('127.0.0.1', 0, ('service-a', 'service-b', 'console'), 0, {}, frozenset({'console'})))
     await server.start()
     writers = []
 

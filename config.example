@@ -2,6 +2,7 @@
 HOST=0.0.0.0
 PORT=9100
 WS_PORT=9101
+# STATIC_PORT=9102
 # CLIENT_KEYS=admin-secret,client-one-key,client-two-key
 # SERVER_KEYS=admin-secret
 # CLIENT_KEYS_FILE=/absolute/path/to/keys.txt
