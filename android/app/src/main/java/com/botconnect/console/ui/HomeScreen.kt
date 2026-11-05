@@ -49,7 +49,7 @@ fun shortId(id: String) = if (id.length > 12) id.take(8) + "…" else id
             ErrorNotice(vm)
             PrimaryTabRow(selectedTabIndex = tab) { listOf("服务", "群聊").forEachIndexed { index, title -> Tab(selected = tab == index, onClick = { tab = index }, text = { Text(title) }) } }
             if (tab == 0) {
-                val peers = vm.clients.filter { it.id != vm.me?.id }
+                val peers = vm.clients.filter { it.id != vm.me?.id }.distinctBy { it.id }
                 if (peers.isEmpty()) EmptyList("尚未配置任何客户端") else LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
                     items(peers, key = { it.id }) { c -> ConversationRow(c.name, c.id, "${if (c.online) "在线" else "离线"} · ${shortId(c.id)}", c.online, vm.messages["dm:${c.id}"].orEmpty().lastOrNull()) { open("dm", c.id) } }
                 }

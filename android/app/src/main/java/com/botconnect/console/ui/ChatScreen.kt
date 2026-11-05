@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,10 +48,12 @@ import com.botconnect.console.ui.theme.*
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (conversation.isEmpty()) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) { Text("✧", fontSize = 48.sp, color = Purple); Text("准备发送消息", fontWeight = FontWeight.Bold); Spacer(Modifier.height(8.dp)); Text("发送消息到所选服务或群聊。", color = Muted) }
             else LazyColumn(state = listState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-                items(conversation) { msg ->
+                itemsIndexed(conversation, key = { index, _ -> index }) { _, msg ->
                     val own = msg.from == vm.me?.id
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (own) Alignment.End else Alignment.Start) {
-                        Text("${vm.display(msg.from)}  ${msg.time}", style = MaterialTheme.typography.labelSmall, color = Muted)
+                        val sender = vm.display(msg.from)
+                        val senderLabel = if (!own && msg.from.isNotBlank()) "$sender · ${shortId(msg.from)}" else sender
+                        Text("$senderLabel  ${msg.time}", style = MaterialTheme.typography.labelSmall, color = Muted)
                         Spacer(Modifier.height(5.dp))
                         Text(msg.payload, Modifier.widthIn(max = 300.dp).background(if (own) Purple else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp)).padding(horizontal = 16.dp, vertical = 12.dp), color = if (own) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface)
                     }
@@ -62,7 +65,7 @@ import com.botconnect.console.ui.theme.*
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp)) {
             Text("邀请在线服务", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
-            val available = vm.clients.filter { it.online && it.id != vm.me?.id && it.id !in group?.members.orEmpty() }
+            val available = vm.clients.filter { it.online && it.id != vm.me?.id && it.id !in group?.members.orEmpty() }.distinctBy { it.id }
             if (available.isEmpty()) Text("暂无可邀请的在线服务", color = Muted, modifier = Modifier.padding(vertical = 20.dp))
             else LazyColumn { items(available, key = { it.id }) { c -> ListItem(headlineContent = { Text(c.name) }, supportingContent = { Text(shortId(c.id)) }, leadingContent = { Avatar(c.name, c.id, true) }, trailingContent = { TextButton(onClick = { vm.invite(id, c.id); inviting = false }) { Text("邀请") } }) } }
             Spacer(Modifier.height(24.dp))

@@ -90,12 +90,31 @@ class BotConnectViewModel(app: Application) : AndroidViewModel(app) {
                 if (message == "authentication failed") { disconnect(false); error = message } else error = message
             }
             "clients" -> {
-                val a = f.optJSONArray("clients"); clients = (0 until (a?.length() ?: 0)).mapNotNull { i -> a?.optJSONObject(i)?.let { Client(it.optString("id"), it.optString("name"), it.optBoolean("online")) } }
+                val a = f.optJSONArray("clients")
+                val byId = linkedMapOf<String, Client>()
+                for (i in 0 until (a?.length() ?: 0)) {
+                    val entry = a?.optJSONObject(i) ?: continue
+                    val id = entry.optString("id").takeUnless { it.isBlank() } ?: continue
+                    val name = entry.optString("name").takeUnless { it.isBlank() } ?: id
+                    byId[id] = Client(id, name, entry.optBoolean("online"))
+                }
+                clients = byId.values.toList()
             }
             "groups" -> {
                 val a = f.optJSONArray("groups"); groups = (0 until (a?.length() ?: 0)).mapNotNull { i -> a?.optJSONObject(i)?.let { g -> val m = g.optJSONArray("members"); Group(g.optString("id"), g.optString("name"), (0 until (m?.length() ?: 0)).map { m!!.optString(it) }) } }
             }
-            "presence" -> send("list_clients")
+            "presence" -> {
+                val id = f.optString("client_id")
+                if (id.isNotBlank()) {
+                    val previous = clients.find { it.id == id }
+                    val name = f.optString("name").takeUnless { it.isBlank() }
+                        ?: previous?.name?.takeUnless { it.isBlank() } ?: id
+                    val updated = Client(id, name, f.optBoolean("online"))
+                    clients = if (previous == null) clients + updated
+                        else clients.map { if (it.id == id) updated else it }.distinctBy { it.id }
+                }
+                send("list_clients")
+            }
             "group_created", "group_updated", "invited" -> {
                 send("list_groups")
                 if (f.optString("type") == "group_created") {
@@ -124,6 +143,6 @@ class BotConnectViewModel(app: Application) : AndroidViewModel(app) {
     fun invite(group: String, id: String) { if (!send("invite", "group_id" to group, "client_id" to id)) error = "发送失败，请检查连接" }
     fun clearError() { error = "" }
     fun groupOpened() { openGroup = null }
-    fun display(id: String) = if (id == me?.id) "控制台" else clients.find { it.id == id }?.name ?: id
+    fun display(id: String) = if (id == me?.id) "控制台" else clients.find { it.id == id }?.name?.takeUnless { it.isBlank() } ?: id
     override fun onCleared() { disconnect(); client.shutdown(); super.onCleared() }
 }
