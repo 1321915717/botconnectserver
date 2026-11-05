@@ -112,8 +112,8 @@ android/
 - [ ] 私聊：双向收发正常，对方离线时服务端报 `client offline`，界面有提示
 - [ ] 群聊：建群、邀请、群内收发都正常；建群后自动打开新群
 - [ ] 断线重连：杀掉服务端再启动，App 自动重连回来（1/2/5/10/30 秒退避）
-- [ ] GitHub Actions 能出 debug APK，可下载安装
+- [x] GitHub Actions 能出 debug APK，可下载安装
 - [ ] 不照搬网页：界面是手机原生的 Material 3 形态（评审时肉眼确认）
 
 
-真机联调待用户验证。GitHub Actions 云端构建及 APK 安装也需在推送后验证。
+真机联调待用户验证。GitHub Actions 云端构建已在 commit `70f4330` 验证通过（artifact `botconnect-debug-apk`），安装与联调仍待用户确认。
