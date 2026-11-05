@@ -1,0 +1,6 @@
+# Copy relevant values into your environment; do not commit real keys.
+HOST=0.0.0.0
+PORT=9000
+# CLIENT_KEYS=replace-with-client-one-key,replace-with-client-two-key
+# CLIENT_KEYS_FILE=/absolute/path/to/keys.txt
+LOG_LEVEL=INFO
