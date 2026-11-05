@@ -46,7 +46,9 @@ npm run build
 CLIENT_KEY='alice-secret' HOST=127.0.0.1 PORT=9000 python3 example_client.py
 ```
 
-普通文本发旧版广播；命令包括 `/clients`、`/groups`、`/create 群名`、`/invite 群ID 客户端ID`、`/g 群ID 内容` 和 `/dm 客户端ID 内容`。
+启动后默认为广播模式，提示符显示当前会话。用 `/focus g 群ID` 切换到群聊，或用 `/focus dm 客户端ID` 切换到私聊；之后输入的普通文本会发往该会话。用 `/focus clear` 或 `/broadcast` 返回广播模式。群 ID 和客户端 ID 可分别通过 `/groups`、`/clients` 查看。
+
+其他命令：`/create 群名` 创建群，`/invite 群ID 客户端ID` 邀请成员，`/join 群ID` 加入群，`/g 群ID 内容` 和 `/dm 客户端ID 内容` 直接发送消息（不改变当前会话），`/help` 查看帮助。按 Ctrl-D 退出。
 
 ## 协议摘要
 
