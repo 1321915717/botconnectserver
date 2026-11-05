@@ -106,7 +106,7 @@ async def listen_forever():
     attempt = 0
     while True:
         try:
-            async with websockets.connect(WS_URL, ping_interval=20) as ws:
+            async with websockets.connect(WS_URL, ping_interval=20, open_timeout=60) as ws:
                 print(f"已连接 {WS_URL}", flush=True)
                 await ws.send(json.dumps({"type": "auth", "key": MUSE_KEY}))
                 try:
@@ -134,7 +134,7 @@ async def send_once(frame):
     """连上、认证、发一帧、退出（供 --send 用）。"""
     import websockets  # 需 pip install websockets
 
-    async with websockets.connect(WS_URL, ping_interval=20) as ws:
+    async with websockets.connect(WS_URL, ping_interval=20, open_timeout=60) as ws:
         await ws.send(json.dumps({"type": "auth", "key": MUSE_KEY}))
         first = await asyncio.wait_for(ws.recv(), timeout=10)
         event, content = extract(first)

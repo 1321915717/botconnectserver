@@ -7,3 +7,7 @@ web/node_modules/
 .idea/
 
 keys.txt
+
+# 本地监听服务运行产物
+muse-inbox.log
+muse-listener.out
