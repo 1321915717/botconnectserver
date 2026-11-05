@@ -10,7 +10,7 @@ from botconnectserver.server import Config, Server
 
 class ChatTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.server = Server(Config('127.0.0.1', 0, ('alice', 'bob'), 0, {'alice': 'Alice'}))
+        self.server = Server(Config('127.0.0.1', 0, ('alice', 'bob'), 0, {'alice': 'Alice'}, frozenset({'alice'})))
         await self.server.start()
         self.port = self.server.server.sockets[0].getsockname()[1]
         self.ws_port = self.server.ws_server.sockets[0].getsockname()[1]
@@ -92,3 +92,24 @@ class ChatTest(unittest.IsolatedAsyncioTestCase):
         await self.send(w, {'type': 'auth', 'key': 'wrong'})
         self.assertEqual((await self.until(r, 'error'))['error'], 'authentication failed')
         self.assertEqual(await r.read(), b'')
+
+    async def test_client_permissions_restricted(self):
+        # bob 是客户端（非服务端），不能广播、不能建群、不能邀请
+        a, aw = await self.tcp('alice')  # 服务端
+        b, bw = await self.tcp('bob')    # 客户端
+        # 客户端发 message：应作为上报只送达服务端，不广播给其他客户端
+        await self.send(bw, {'type': 'message', 'payload': 'report'})
+        report = await self.until(a, 'message')
+        self.assertEqual(report['payload'], 'report')
+        self.assertEqual(report['from'], 'bob')
+        # 客户端不能建群
+        await self.send(bw, {'type': 'create_group', 'name': 'nope'})
+        self.assertEqual((await self.until(b, 'error'))['error'], 'create_group requires server')
+        # 客户端 list_clients 只返回自己，不暴露服务端
+        await self.send(bw, {'type': 'list_clients'})
+        clients = (await self.until(b, 'clients'))['clients']
+        self.assertEqual([c['id'] for c in clients], ['bob'])
+        # 服务端 list_clients 返回全部（含离线）
+        await self.send(aw, {'type': 'list_clients'})
+        server_clients = (await self.until(a, 'clients'))['clients']
+        self.assertEqual({c['id'] for c in server_clients}, {'alice', 'bob'})

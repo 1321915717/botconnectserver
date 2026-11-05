@@ -7,7 +7,7 @@ name = "botconnectserver"
 version = "1.0.0"
 description = "A small authenticated asyncio TCP message server"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["python-dotenv>=1.0"]
 
 [tool.setuptools]
 packages = ["botconnectserver"]

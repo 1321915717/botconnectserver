@@ -25,11 +25,13 @@ class Config:
     keys: tuple[str, ...]
     ws_port: int = 9001
     names: dict = field(default_factory=dict)
+    server_keys: frozenset = field(default_factory=frozenset)
 
     @classmethod
     def from_env(cls):
         names = {}
         keys = [k.strip() for k in os.getenv('CLIENT_KEYS', '').split(',') if k.strip()]
+        server_keys = frozenset(k.strip() for k in os.getenv('SERVER_KEYS', '').split(',') if k.strip())
         path = os.getenv('CLIENT_KEYS_FILE')
         if path:
             for line in Path(path).read_text(encoding='utf-8').splitlines():
@@ -51,7 +53,7 @@ class Config:
         port, ws_port = int(os.getenv('PORT', '9000')), int(os.getenv('WS_PORT', '9001'))
         if not all(0 <= p <= 65535 for p in (port, ws_port)):
             raise ValueError('PORT and WS_PORT must be between 0 and 65535')
-        return cls(os.getenv('HOST', '0.0.0.0'), port, tuple(dict.fromkeys(keys)), ws_port, names)
+        return cls(os.getenv('HOST', '0.0.0.0'), port, tuple(dict.fromkeys(keys)), ws_port, names, server_keys)
 
 
 class Session:
@@ -173,6 +175,10 @@ class Server:
     def name(self, key):
         return self.config.names.get(key, key)
 
+    def is_server(self, key):
+        """判断一个 client_id 是否为服务端（人）身份。"""
+        return key in self.config.server_keys
+
     async def deliver(self, sessions, frame):
         async def send(session):
             try:
@@ -228,10 +234,21 @@ class Server:
     async def dispatch(self, s, f):
         typ = f.get('type')
         error = None
+        is_server = self.is_server(s.id)
         if typ == 'message' and 'payload' in f:
-            await self.deliver((c for c in self.clients if c is not s), {'type': 'message', 'payload': f['payload']})
+            if is_server:
+                # 服务端广播：发给所有其他在线连接
+                await self.deliver((c for c in self.clients if c is not s), {'type': 'message', 'from': s.id, 'payload': f['payload']})
+            else:
+                # 客户端上报：只送达所有在线服务端（人），不广播给其他客户端
+                await self.deliver((c for c in self.clients if c is not s and self.is_server(c.id)), {'type': 'message', 'from': s.id, 'payload': f['payload']})
         elif typ == 'list_clients':
-            await s.send({'type': 'clients', 'clients': [{'id': k, 'name': self.name(k), 'online': any(c.id == k for c in self.clients)} for k in self.config.keys]})
+            # 服务端看全部配置身份（含离线）；客户端只看自己，不暴露服务端 key
+            if is_server:
+                visible = self.config.keys
+            else:
+                visible = (s.id,)
+            await s.send({'type': 'clients', 'clients': [{'id': k, 'name': self.name(k), 'online': any(c.id == k for c in self.clients)} for k in visible]})
         elif typ == 'list_groups':
             await s.send({'type': 'groups', 'groups': [{'id': g['id'], 'name': g['name'], 'members': sorted(g['members'])} for g in self.groups.values() if s.id in g['members']]})
         elif typ == 'dm' and 'payload' in f and isinstance(f.get('to'), str):
@@ -243,10 +260,13 @@ class Server:
             else:
                 await self.deliver((c for c in self.clients if c.id in (s.id, target)), {'type': 'dm', 'from': s.id, 'to': target, 'payload': f['payload']})
         elif typ == 'create_group' and isinstance(f.get('name'), str) and f['name'].strip():
-            gid = uuid.uuid4().hex[:12]
-            group = {'id': gid, 'name': f['name'].strip()[:100], 'members': {s.id}}
-            self.groups[gid] = group
-            await self.deliver((c for c in self.clients if c.id == s.id), self.group_frame(group, 'group_created'))
+            if not is_server:
+                error = 'create_group requires server'
+            else:
+                gid = uuid.uuid4().hex[:12]
+                group = {'id': gid, 'name': f['name'].strip()[:100], 'members': {s.id}}
+                self.groups[gid] = group
+                await self.deliver((c for c in self.clients if c.id == s.id), self.group_frame(group, 'group_created'))
         elif typ in ('invite', 'join_group', 'group_message'):
             gid = f.get('group_id')
             group = self.groups.get(gid) if isinstance(gid, str) else None
@@ -254,6 +274,8 @@ class Server:
                 error = 'unknown group'
             elif typ != 'join_group' and s.id not in group['members']:
                 error = 'not a group member'
+            elif typ == 'invite' and not is_server:
+                error = 'invite requires server'
             elif typ == 'group_message':
                 if 'payload' not in f:
                     error = 'payload required'
@@ -300,12 +322,25 @@ async def run(config):
         await server.close()
 
 
-def main():
+def main(config=None):
+    """启动服务。config 可为 Config 实例或 None（None 时从环境变量读取）。
+
+    环境变量可通过 shell 设置，也可放在项目根目录的 .env 文件中（自动加载）。
+    """
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
     logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO').upper(), format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     try:
-        asyncio.run(run(Config.from_env()))
+        asyncio.run(run(config or Config.from_env()))
     except (ValueError, OSError) as exc:
         LOG.error('Cannot start server: %s', exc)
         raise SystemExit(1) from exc
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == '__main__':
+    main()

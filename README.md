@@ -11,12 +11,17 @@
 ## 启动服务
 
 ```sh
-export CLIENT_KEYS='alice-secret,bob-secret,console-secret'
-export CLIENT_NAMES='alice-secret:服务 A,bob-secret:服务 B,console-secret:控制台'
-export HOST=0.0.0.0 PORT=9000 WS_PORT=9001
+export CLIENT_KEYS='admin-secret,alice-secret,bob-secret'
+export SERVER_KEYS='admin-secret'
+export CLIENT_NAMES='admin-secret:服务端,alice-secret:服务 A,bob-secret:服务 B'
+export HOST=0.0.0.0 PORT=9100 WS_PORT=9101
 python3 -m botconnectserver
 # 或 pip install . 后运行 botconnectserver
 ```
+
+也支持 `.env` 文件：`main()` 启动时会自动加载项目根目录的 `.env`（需 `python-dotenv`，`uv sync` 自动安装）。
+
+**服务端 / 客户端权限模型**：`SERVER_KEYS` 标记哪些 key 是「服务端（人）」，其余为「客户端（AI Agent）」。服务端拥有管理权限，可广播、创建群聊、邀请成员、查看全部客户端（含离线）；客户端只能回复服务端、互相私聊、被动接收，不能建群或广播，且 `list_clients` 只会返回它自己（不暴露服务端 key）。
 
 也可以通过 `CLIENT_KEYS_FILE` 指定 UTF-8 文件，与 `CLIENT_KEYS` 合并。文件每行是一个 key 或 `key=显示名`，空行和以 `#` 开头的行会忽略。`CLIENT_NAMES` 使用逗号分隔的 `key:显示名`，优先于文件内显示名；未设置时显示 key。每个 key 就是稳定的 `client_id`，多个连接可使用同一身份。配置变更需要重启。参见 `config.example`。
 
@@ -25,7 +30,8 @@ python3 -m botconnectserver
 | HOST | 0.0.0.0 | TCP 和 WebSocket 监听地址 |
 | PORT | 9000 | TCP 端口 |
 | WS_PORT | 9001 | WebSocket 端口 |
-| CLIENT_KEYS | 空 | 逗号分隔的密钥 |
+| CLIENT_KEYS | 空 | 逗号分隔的密钥（全部身份） |
+| SERVER_KEYS | 空 | 逗号分隔的服务端（人）key，拥有管理权限 |
 | CLIENT_KEYS_FILE | 空 | 密钥文件路径 |
 | CLIENT_NAMES | 空 | 逗号分隔的 `key:显示名` |
 | LOG_LEVEL | INFO | 日志级别 |
@@ -83,12 +89,12 @@ TCP 为 UTF-8 NDJSON（每个 JSON 对象以换行结束，单帧最多 65536 �
 
 认证后：
 
-- `message` 带 `payload`：保持旧行为，原样广播给所有其他在线连接，不向发送连接回显。
-- `dm` 带 `to`、`payload`：转发给目标及发送身份的在线连接，返回 `from`、`to`、`payload`；目标离线时报错。
-- `create_group` 带 `name`：创建者自动加入，返回 `group_created`（`group_id`、`name`、`members`）。
-- `invite` 带 `group_id`、`client_id`：任何群成员可直接添加已配置身份，在线成员收到 `group_updated`。`join_group` 带 `group_id`：任何知道群 ID 的身份可加入。
+- `message` 带 `payload`：服务端发 → 广播给所有其他在线连接；客户端发 → 作为**单向上报**只送达所有在线服务端（带 `from`，不广播给其他客户端）。
+- `dm` 带 `to`、`payload`：转发给目标及发送身份的在线连接，返回 `from`、`to`、`payload`；目标离线时报错。任何身份可互发。
+- `create_group` 带 `name`：仅服务端可创建，创建者自动加入，返回 `group_created`（`group_id`、`name`、`members`）。
+- `invite` 带 `group_id`、`client_id`：仅服务端可邀请已配置身份，在线成员收到 `group_updated`。`join_group` 带 `group_id`：任何知道群 ID 的身份可加入。
 - `group_message` 带 `group_id`、`payload`：发送给群内其他在线连接，带 `from`；发送连接不回显。
-- `list_groups` 返回自己所在的 `groups`（每项 `id`、`name`、`members`）；`list_clients` 返回所有配置身份及在线状态。
+- `list_groups` 返回自己所在的 `groups`（每项 `id`、`name`、`members`）；`list_clients`：服务端返回所有配置身份及在线状态（含离线），客户端只返回自己。
 - 身份上线和最后一个连接下线时广播 `presence`（`client_id`、`name`、`online`）。业务错误返回 `{"type":"error","error":"..."}`，通常保持连接。
 
 旧客户端仍可使用 auth 和 message，忽略额外的认证字段以及 presence 等新类型即可。消息不持久化；群及成员关系仅存内存，服务重启后丢失。发送不保证投递，离线消息不会保存。

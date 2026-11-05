@@ -1,8 +1,9 @@
 # 请将配置导出为环境变量，密钥不要提交到版本库
 HOST=0.0.0.0
-PORT=9000
-WS_PORT=9001
-# CLIENT_KEYS=client-one-key,client-two-key
+PORT=9100
+WS_PORT=9101
+# CLIENT_KEYS=admin-secret,client-one-key,client-two-key
+# SERVER_KEYS=admin-secret
 # CLIENT_KEYS_FILE=/absolute/path/to/keys.txt
-# CLIENT_NAMES=client-one-key:Alice,client-two-key:Bob
+# CLIENT_NAMES=admin-secret:服务端,client-one-key:Alice,client-two-key:Bob
 LOG_LEVEL=INFO
