@@ -9,5 +9,8 @@ description = "A small authenticated asyncio TCP message server"
 requires-python = ">=3.10"
 dependencies = []
 
+[tool.setuptools]
+packages = ["botconnectserver"]
+
 [project.scripts]
 botconnectserver = "botconnectserver.server:main"
