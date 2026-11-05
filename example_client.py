@@ -16,7 +16,7 @@ async def main():
         response = await reader.readline()
         if not response or json.loads(response).get("type") != "auth_ok":
             raise SystemExit("Authentication failed")
-        print("Authenticated. Enter messages; Ctrl-D to exit.", flush=True)
+        print("Authenticated. Commands: /groups, /clients, /create name, /invite gid client, /g gid text, /dm client text. Ctrl-D to exit.", flush=True)
 
         async def receive():
             while line := await reader.readline():
@@ -34,7 +34,23 @@ async def main():
             queue = asyncio.Queue()
             threading.Thread(target=read_input, daemon=True).start()
             while (line := await queue.get()) is not None:
-                writer.write((json.dumps({"type": "message", "payload": line.rstrip("\n")}, ensure_ascii=False) + "\n").encode())
+                line = line.rstrip("\n")
+                parts = line.split(maxsplit=2)
+                if line == "/groups":
+                    frame = {"type": "list_groups"}
+                elif line == "/clients":
+                    frame = {"type": "list_clients"}
+                elif line.startswith("/create "):
+                    frame = {"type": "create_group", "name": line[8:]}
+                elif len(parts) == 3 and parts[0] == "/invite":
+                    frame = {"type": "invite", "group_id": parts[1], "client_id": parts[2]}
+                elif len(parts) == 3 and parts[0] == "/g":
+                    frame = {"type": "group_message", "group_id": parts[1], "payload": parts[2]}
+                elif len(parts) == 3 and parts[0] == "/dm":
+                    frame = {"type": "dm", "to": parts[1], "payload": parts[2]}
+                else:
+                    frame = {"type": "message", "payload": line}
+                writer.write((json.dumps(frame, ensure_ascii=False) + "\n").encode())
                 await writer.drain()
 
         tasks = [asyncio.create_task(receive()), asyncio.create_task(send())]

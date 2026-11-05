@@ -1,6 +1,8 @@
-# Copy relevant values into your environment; do not commit real keys.
+# 请将配置导出为环境变量，密钥不要提交到版本库
 HOST=0.0.0.0
 PORT=9000
-# CLIENT_KEYS=replace-with-client-one-key,replace-with-client-two-key
+WS_PORT=9001
+# CLIENT_KEYS=client-one-key,client-two-key
 # CLIENT_KEYS_FILE=/absolute/path/to/keys.txt
+# CLIENT_NAMES=client-one-key:Alice,client-two-key:Bob
 LOG_LEVEL=INFO
