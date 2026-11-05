@@ -9,5 +9,5 @@ web/node_modules/
 keys.txt
 
 # 本地监听服务运行产物
-muse-inbox.log
-muse-listener.out
+muse/muse-inbox.log
+muse/muse-listener.out
