@@ -1,12 +1,18 @@
-# BotConnect 聊天服务
+# BotConnect 服务与操作员控制台
 
-基于 Python 3.10+ 标准库的 TCP NDJSON 与 WebSocket 聊天服务，配套 Vue 3 深色聊天界面。支持在线状态、私聊、群聊和旧版广播；服务端无需安装运行时依赖。
+基于 Python 3.10+ 标准库的 TCP NDJSON 与 WebSocket 聊天服务，配套 Vue 3 操作员控制台。支持在线状态、私聊、群聊和旧版广播；服务端无需安装运行时依赖。
+
+## 角色与连接
+
+- 服务端是连接枢纽，负责认证、在线状态和消息转发。
+- 后端服务或机器人使用 **TCP + key** 连接服务端。
+- 操作员使用浏览器中的 Vue 控制台，通过 **WebSocket + 控制台 key** 连接服务端。控制台列出服务端当前在线的其他客户端，可选择服务私聊，或创建群聊并从在线服务中邀请成员。
 
 ## 启动服务
 
 ```sh
-export CLIENT_KEYS='alice-secret,bob-secret'
-export CLIENT_NAMES='alice-secret:Alice,bob-secret:Bob'
+export CLIENT_KEYS='alice-secret,bob-secret,console-secret'
+export CLIENT_NAMES='alice-secret:服务 A,bob-secret:服务 B,console-secret:控制台'
 export HOST=0.0.0.0 PORT=9000 WS_PORT=9001
 python3 -m botconnectserver
 # 或 pip install . 后运行 botconnectserver
@@ -38,7 +44,28 @@ npm run build
 
 打开开发服务器输出的地址，输入 WebSocket URL 和 key。默认地址使用当前页面主机名及 9001 端口，可按部署环境修改。构建结果在 `web/dist`，可由任意静态服务器托管；Python 服务不托管前端。
 
-左侧选择在线用户进行私聊，或创建群聊并通过群顶部的按钮输入客户端 ID 邀请成员。群 ID 会显示在标题下方。客户端列表包含所有配置身份，界面只展示其他在线用户。
+左侧选择在线服务进行私聊；创建群聊后，通过群顶部的「邀请服务」从在线服务列表选择成员。群 ID 显示在标题下方。客户端列表包含所有配置身份，界面只展示当前在线且不是本控制台的客户端。
+
+## 双服务与控制台联调
+
+先按上面的配置启动服务端，再分别在两个终端运行：
+
+```sh
+CLIENT_KEY='alice-secret' HOST=127.0.0.1 PORT=9000 python3 example_client.py
+```
+
+```sh
+CLIENT_KEY='bob-secret' HOST=127.0.0.1 PORT=9000 python3 example_client.py
+```
+
+保持两个客户端在线，启动前端开发服务器，在浏览器打开其输出地址，用 `ws://localhost:9001` 和 `console-secret` 登录。侧栏应显示服务 A 和服务 B；选择服务 A 发送私聊，再创建群聊并从在线服务中邀请服务 B。TCP 客户端可查看收到的消息和群更新。
+
+自动协议冒烟（启动临时服务、两个 TCP 客户端和一个 WebSocket 控制台，验证列表、私聊及群邀请）：
+
+```sh
+python3 scripts/smoke_console.py
+# 成功输出 SMOKE_OK
+```
 
 ## TCP 示例客户端
 
