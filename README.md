@@ -96,6 +96,10 @@ python3 scripts/smoke_console.py
 # 成功输出 SMOKE_OK
 ```
 
+## Grok Bot 监听端
+
+`grok/` 提供 Grok Bot 的 BotConnect WebSocket 监听端部署包，用法见 [grok/README.md](grok/README.md)。
+
 ## TCP 示例客户端
 
 ```sh

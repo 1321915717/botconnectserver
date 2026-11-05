@@ -11,6 +11,8 @@ keys.txt
 # 本地监听服务运行产物
 muse/muse-inbox.log
 muse/muse-listener.out
+grok/grok-inbox.log
+grok/grok-listener.out
 
 web/dist/
 

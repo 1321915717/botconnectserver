@@ -1,0 +1,17 @@
+[Unit]
+Description=Grok BotConnect listener
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@GROK_DIR@
+EnvironmentFile=/home/hatch/.config/grok-listener.env
+ExecStart=/usr/bin/python3 @GROK_DIR@/grok.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:@GROK_DIR@/grok-listener.out
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target
