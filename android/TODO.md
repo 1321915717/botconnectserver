@@ -1,9 +1,6 @@
 # 安卓控制台 TODO
 
-> 状态：待开发。2026-11-05 先把功能描述落下来提交，代码等 Codex 恢复后按本文档写。
-> 当前卡点：Codex 调用网关三个模型（gpt-6.1-luna、gpt-6-luna、gpt-5.6-luna）均零输出卡住，
-> 网关本身可达、Codex 程序正常，疑似网关侧很慢或排队，等 Mark 确认网关状态与 6.1 模型的准确 id。
-> 本地编译环境已就绪：JDK 17 + Gradle 8.10.2 + Android SDK（API 34、build-tools 34.0.0）。
+> 状态：已实现。工程、协议处理和云打包配置已完成。
 
 ## 目标
 
@@ -107,6 +104,9 @@ android/
 
 ## 验收标准
 
+- [x] 原生工程、协议处理、自动重连和 GitHub Actions 构建配置已实现
+- [x] Gradle wrapper 文件齐全，README 含本地和云打包说明
+
 - [ ] 登录：填 WS 地址 + key 能连上，错 key 显示 `authentication failed`，不闪退
 - [ ] 服务列表：在线/离线状态对，短 id 显示对，点开能私聊
 - [ ] 私聊：双向收发正常，对方离线时服务端报 `client offline`，界面有提示
@@ -114,3 +114,6 @@ android/
 - [ ] 断线重连：杀掉服务端再启动，App 自动重连回来（1/2/5/10/30 秒退避）
 - [ ] GitHub Actions 能出 debug APK，可下载安装
 - [ ] 不照搬网页：界面是手机原生的 Material 3 形态（评审时肉眼确认）
+
+
+真机联调待用户验证。GitHub Actions 云端构建及 APK 安装也需在推送后验证。
