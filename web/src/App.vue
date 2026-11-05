@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-const url = ref(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.hostname || 'localhost'}:9101`)
+const url = ref(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.hostname || 'localhost'}:${import.meta.env.VITE_WS_PORT || '9101'}`)
 const key = ref(''), me = ref(null), clients = ref([]), groups = ref([]), selected = ref(null), text = ref(''), error = ref(''), messages = ref({}), connected = ref(false), inviting = ref(false)
 let ws
 const current = computed(() => selected.value && (selected.value.kind === 'dm' ? clients.value.find(c => c.id === selected.value.id) : groups.value.find(g => g.id === selected.value.id)))

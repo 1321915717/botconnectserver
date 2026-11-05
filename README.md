@@ -55,6 +55,14 @@ npm run build
 
 `npm run build` 会把产物直接输出到 Python 包内的 `botconnectserver/web_dist/`（见 `vite.config.js` 的 `build.outDir`），打包后前端随包一起分发，服务端自包含。
 
+前端默认 WebSocket 端口通过 Vite `define` 注入，默认为 **8320**（对应 Docker 宿主机映射 `8320→9101`）。如需其他端口，构建时指定：
+
+```sh
+VITE_WS_PORT=9101 npm run build   # Linux/macOS
+```
+
+Windows 下可用 `cross-env` 或直接在 `vite.config.js` 中改默认值。前端 WS 地址规则为 `ws://<页面主机名>:<WS端口>`，与静态页面同机部署时只需端口对齐。
+
 ### 由 Python 服务托管前端（推荐）
 
 打包产物已内置到 Python 包，服务启动时用 `importlib.resources` 从包内读取，无需单独跑 `npm run dev` 或 nginx。只需在 `.env` 中设置静态端口：
@@ -63,9 +71,7 @@ npm run build
 STATIC_PORT=9102
 ```
 
-启动服务后，浏览器打开 `http://localhost:9102` 即可访问打包好的控制台。前端默认 WebSocket 地址指向同主机 9101 端口，与服务端对齐。静态托管基于标准库 `http.server` + `importlib.resources`，不引入额外依赖，`pip install .` 后也能自带前端。
-
-打开控制台后，输入 WebSocket URL 和 key。默认地址使用当前页面主机名及 9101 端口，可按部署环境修改。
+启动服务后，浏览器打开 `http://localhost:9102` 即可访问打包好的控制台。前端默认 WebSocket 地址指向同主机 8320 端口（由 `VITE_WS_PORT` 控制）。静态托管基于标准库 `http.server` + `importlib.resources`，不引入额外依赖，`pip install .` 后也能自带前端。
 
 左侧客户端列表展示所有配置的客户端（含离线状态，离线项置灰）。选择客户端进行私聊；客户端通过 `message` 上报的消息会归入对应客户端的私聊会话。创建群聊后，通过群顶部的「邀请服务」从客户端列表选择成员。群 ID 显示在标题下方。
 
@@ -115,6 +121,32 @@ TCP 为 UTF-8 NDJSON（每个 JSON 对象以换行结束，单帧最多 65536 �
 - 身份上线和最后一个连接下线时广播 `presence`（`client_id`、`name`、`online`）。业务错误返回 `{"type":"error","error":"..."}`，通常保持连接。
 
 旧客户端仍可使用 auth 和 message，忽略额外的认证字段以及 presence 等新类型即可。消息不持久化；群及成员关系仅存内存，服务重启后丢失。发送不保证投递，离线消息不会保存。
+
+## Docker 部署
+
+项目自带 `Dockerfile`、`docker-compose.yml` 和 `.dockerignore`。
+
+```sh
+docker compose up -d --build
+```
+
+宿主机端口映射（见 `docker-compose.yml`）：
+
+| 宿主机 | 容器内 | 用途 |
+| --- | --- | --- |
+| 8317 | 9100 | TCP（AI Agent socket） |
+| 8320 | 9101 | WebSocket（前端控制台通信） |
+| 8319 | 9102 | 静态页面（前端控制台界面） |
+
+启动后浏览器打开 `http://<宿主机>:8319`，前端会自动连 `ws://<宿主机>:8320`（前端 WS 端口由 `VITE_WS_PORT` 控制，默认 8320）。AI Agent 通过 TCP 连接 `<宿主机>:8317`。
+
+密钥可通过环境变量注入（默认 `admin-secret`/`alice-secret`/`bob-secret`）：
+
+```sh
+CLIENT_KEYS='...' SERVER_KEYS='...' CLIENT_NAMES='...' docker compose up -d --build
+```
+
+> 生产环境建议用 `env_file` 或 Docker secrets 管理密钥，勿明文提交。
 
 ## 安全与测试
 
