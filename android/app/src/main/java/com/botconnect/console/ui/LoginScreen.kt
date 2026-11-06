@@ -1,6 +1,7 @@
 package com.botconnect.console.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -28,6 +29,10 @@ import com.botconnect.console.ui.theme.Purple
         OutlinedTextField(vm.url, { vm.url = it }, label = { Text("WebSocket 地址") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(vm.key, { vm.key = it }, label = { Text("控制台 key") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+        Row(Modifier.fillMaxWidth().clickable { vm.updateRememberPassword(!vm.rememberPassword) }, verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = vm.rememberPassword, onCheckedChange = vm::updateRememberPassword)
+            Text("记住密码")
+        }
         if (vm.error.isNotEmpty()) { Spacer(Modifier.height(12.dp)); Text(vm.error, color = MaterialTheme.colorScheme.error) }
         Spacer(Modifier.height(24.dp))
         Button(onClick = vm::connect, enabled = vm.connection == Connection.DISCONNECTED, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text(if (vm.connection == Connection.CONNECTING) "连接中…" else "连接管理端") }

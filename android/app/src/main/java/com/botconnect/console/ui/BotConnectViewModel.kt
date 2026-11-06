@@ -19,7 +19,8 @@ import java.util.Locale
 class BotConnectViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("botconnect", 0)
     var url by mutableStateOf(prefs.getString("url", "ws://43.173.102.253:8320") ?: "ws://43.173.102.253:8320")
-    var key by mutableStateOf("")
+    var rememberPassword by mutableStateOf(prefs.getBoolean("remember_password", true)); private set
+    var key by mutableStateOf(if (rememberPassword) prefs.getString("key", "").orEmpty() else "")
     var connection by mutableStateOf(Connection.DISCONNECTED); private set
     var me by mutableStateOf<Identity?>(null); private set
     var clients by mutableStateOf<List<Client>>(emptyList()); private set
@@ -36,11 +37,25 @@ class BotConnectViewModel(app: Application) : AndroidViewModel(app) {
     private var reconnecting = false
     private val delays = longArrayOf(1, 2, 5, 10, 30)
 
+    init {
+        if (!prefs.getString("url", "").isNullOrBlank() && key.isNotBlank()) connect()
+    }
+
+    fun updateRememberPassword(remember: Boolean) {
+        rememberPassword = remember
+        prefs.edit().putBoolean("remember_password", remember).apply {
+            if (!remember) remove("key")
+        }.apply()
+    }
+
     fun connect() {
         if (url.isBlank() || key.isBlank()) { error = "请输入 WebSocket 地址和控制台 key"; return }
         val enteredKey = key
         disconnect(false)
         key = enteredKey; secret = enteredKey
+        prefs.edit().putString("url", url.trim()).apply {
+            if (rememberPassword) putString("key", enteredKey) else remove("key")
+        }.apply()
         me = null; clients = emptyList(); groups = emptyList(); messages = emptyMap(); error = ""
         attempt = 0; reconnecting = false
         startConnection()
@@ -69,7 +84,8 @@ class BotConnectViewModel(app: Application) : AndroidViewModel(app) {
         retry?.cancel(); retry = viewModelScope.launch { delay(seconds * 1000); startConnection() }
     }
     fun disconnect(clearError: Boolean = true) {
-        generation++; retry?.cancel(); retry = null; client.close(); secret = ""; key = ""
+        generation++; retry?.cancel(); retry = null; client.close(); secret = ""
+        key = if (rememberPassword) prefs.getString("key", "").orEmpty() else ""
         reconnecting = false; authenticated = false; connection = Connection.DISCONNECTED
         me = null; clients = emptyList(); groups = emptyList(); messages = emptyMap(); openGroup = null
         if (clearError) error = ""
@@ -82,8 +98,10 @@ class BotConnectViewModel(app: Application) : AndroidViewModel(app) {
         when (f.optString("type")) {
             "auth_ok" -> {
                 me = Identity(f.optString("client_id"), f.optString("name")); authenticated = true
-                connection = Connection.CONNECTED; reconnecting = false; attempt = 0; key = ""; error = ""
-                prefs.edit().putString("url", url.trim()).apply(); send("list_clients"); send("list_groups")
+                connection = Connection.CONNECTED; reconnecting = false; attempt = 0; key = if (rememberPassword) secret else ""; error = ""
+                prefs.edit().putString("url", url.trim()).apply {
+                    if (rememberPassword) putString("key", secret) else remove("key")
+                }.apply(); send("list_clients"); send("list_groups")
             }
             "error" -> {
                 val message = f.optString("error")
